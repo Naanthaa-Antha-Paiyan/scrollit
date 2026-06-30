@@ -99,6 +99,39 @@ class AppTheme {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
+        navigationBarTheme: NavigationBarThemeData(
+          height: 64,
+          elevation: 0,
+          backgroundColor: const Color(0xFFF8F9FA),
+          indicatorColor: const Color(0xFF1A1A2E).withValues(alpha: 0.1),
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1A1A2E),
+              );
+            }
+            return TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: Colors.grey.shade500,
+            );
+          }),
+          iconTheme: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return const IconThemeData(
+                color: Color(0xFF1A1A2E),
+                size: 22,
+              );
+            }
+            return IconThemeData(
+              color: Colors.grey.shade500,
+              size: 22,
+            );
+          }),
+        ),
       );
 
   static ThemeData get dark => ThemeData(
@@ -196,6 +229,39 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          height: 64,
+          elevation: 0,
+          backgroundColor: const Color(0xFF111111),
+          indicatorColor: Colors.white.withValues(alpha: 0.1),
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFEEEEEE),
+              );
+            }
+            return TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: Colors.grey.shade600,
+            );
+          }),
+          iconTheme: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return const IconThemeData(
+                color: Color(0xFFEEEEEE),
+                size: 22,
+              );
+            }
+            return IconThemeData(
+              color: Colors.grey.shade600,
+              size: 22,
+            );
+          }),
         ),
       );
 }

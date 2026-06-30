@@ -13,21 +13,7 @@ class ScriptListScreen extends ConsumerWidget {
     final scripts = ref.watch(scriptsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scrollit'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const ScriptEditorScreen(),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Scrollit')),
       body: scripts.isEmpty
           ? EmptyState(
               icon: Icons.auto_stories_outlined,

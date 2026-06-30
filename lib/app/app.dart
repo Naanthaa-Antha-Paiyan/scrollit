@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/scripts/screens/script_editor_screen.dart';
-import '../features/scripts/screens/script_list_screen.dart';
 import '../features/reader/screens/reader_screen.dart';
+import 'home_shell.dart';
 import 'theme.dart';
 
 class ScrollitApp extends ConsumerWidget {
@@ -16,7 +16,7 @@ class ScrollitApp extends ConsumerWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.system,
-      home: const ScriptListScreen(),
+      home: const HomeShell(),
       onGenerateRoute: (settings) {
         if (settings.name == '/reader') {
           final scriptId = settings.arguments as String;

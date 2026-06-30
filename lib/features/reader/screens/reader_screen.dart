@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../scripts/providers/scripts_provider.dart';
+import '../../settings/providers/app_settings_provider.dart';
 import '../../../services/auto_scroll_service.dart';
 import '../../../services/presenter_remote_service.dart';
 import '../providers/reader_provider.dart';
-import '../providers/reader_settings_provider.dart';
 import '../widgets/reader_controls.dart';
 
 class ReaderScreen extends ConsumerStatefulWidget {
@@ -31,6 +31,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Timer? _speedOverlayTimer;
   double? _lastSpeed;
   bool _showSpeedOverlay = false;
+  String? _lastKeyLabel;
   static const _manualScrollResumeDelay = Duration(milliseconds: 1500);
 
   @override
@@ -81,9 +82,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     if (isAutoScrolling) {
       _autoScrollService.start(
         _scrollController,
-        ref.read(readerSettingsProvider).scrollSpeed,
+        ref.read(appSettingsProvider).scrollSpeed,
         _onAutoScrollTick,
-        () => ref.read(readerSettingsProvider).scrollSpeed,
+        () => ref.read(appSettingsProvider).scrollSpeed,
       );
     } else {
       _autoScrollService.stop();
@@ -126,22 +127,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   void _jumpTo(double offset) {
     if (!_scrollController.hasClients) {
-      // ignore: avoid_print
-      print('[Scrollit] _jumpTo SKIPPED — no clients');
       return;
     }
     final maxExtent = _scrollController.position.maxScrollExtent;
     if (maxExtent <= 0) {
-      // ignore: avoid_print
-      print('[Scrollit] _jumpTo SKIPPED — maxExtent=$maxExtent');
       return;
     }
     try {
       final clamped = offset.clamp(0.0, maxExtent);
       _scrollController.jumpTo(clamped);
     } catch (e) {
-      // ignore: avoid_print
-      print('[Scrollit] _jumpTo EXCEPTION: $e');
+      // Do nothing
     }
   }
 
@@ -154,9 +150,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   void _doManualScroll(double delta, String label) {
-    final isAutoOn = ref.read(readerProvider).isAutoScrolling;
-    // ignore: avoid_print
-    print('[Scrollit] KEY: $label (autoScroll=$isAutoOn, serviceRunning=${_autoScrollService.isRunning}, dragging=${_autoScrollService.isUserDragging})');
     _autoScrollService.pauseForManualAdjustment(
       _manualScrollResumeDelay,
       _onManualAdjustmentEnd,
@@ -164,8 +157,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
     final extent = _currentControllerExtent();
     if (extent == null || extent <= 0) {
-      // ignore: avoid_print
-      print('[Scrollit]   ABORTED — extent=$extent');
       return;
     }
 
@@ -174,17 +165,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final targetPos = (currentPos + delta).clamp(0.0, 1.0);
     final targetOffset = targetPos * extent;
 
-    // ignore: avoid_print
-    print('[Scrollit]   Before: pos=${currentPos.toStringAsFixed(4)} offset=${offsetBefore.toStringAsFixed(1)} target=${targetOffset.toStringAsFixed(1)}');
     _jumpTo(targetOffset);
-    final offsetAfter = _scrollController.offset;
-    final moved = (offsetAfter - offsetBefore).abs();
-    // ignore: avoid_print
-    print('[Scrollit]   After:  pos=${(offsetAfter / extent).toStringAsFixed(4)} offset=${offsetAfter.toStringAsFixed(1)} moved=${moved.toStringAsFixed(1)}');
-    if (moved < 0.5) {
-      // ignore: avoid_print
-      print('[Scrollit]   ⚠️ SCROLL DID NOT MOVE — this is the bug!');
-    }
   }
 
   void _restorePosition() {
@@ -213,14 +194,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   void _onAutoScrollTick(double position) {
     final notifier = ref.read(readerProvider.notifier);
     if (position >= 1.0) {
-      // ignore: avoid_print
-      print('[Scrollit] AUTO: reached end, stopping');
       notifier.stopAutoScroll();
       return;
     }
     notifier.setPosition(position);
-    // ignore: avoid_print
-    print('[Scrollit] AUTO: pos=$position offset=${_scrollController.hasClients ? _scrollController.offset.toStringAsFixed(1) : "N/A"}');
   }
 
   void _onManualAdjustmentEnd() {
@@ -229,11 +206,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    // ignore: avoid_print
-    print('[Scrollit] EVENT: ${event.runtimeType} ${event.logicalKey}');
     _remoteService.onKeyEvent(event);
 
+    // Track last key for debug overlay.
     if (event is KeyDownEvent) {
+      _updateLastKey(event.logicalKey);
+
       if (_remoteService.detectFullscreenSequence()) {
         ref.read(readerProvider.notifier).toggleFullscreen();
         return KeyEventResult.handled;
@@ -245,6 +223,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     }
 
     final notifier = ref.read(readerProvider.notifier);
+    final settings = ref.read(appSettingsProvider);
 
     if (event.logicalKey == LogicalKeyboardKey.keyB) {
       notifier.toggleAutoScroll();
@@ -259,30 +238,39 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       return KeyEventResult.handled;
     }
 
+    final manualDelta = settings.manualScrollStep.delta;
+    final pageDelta = settings.pageJumpSize.fraction;
+
     switch (event.logicalKey) {
       case LogicalKeyboardKey.arrowUp:
-        _doManualScroll(-0.02, 'Arrow Up');
+        _doManualScroll(-manualDelta, 'Arrow Up');
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowDown:
-        _doManualScroll(0.02, 'Arrow Down');
+        _doManualScroll(manualDelta, 'Arrow Down');
         return KeyEventResult.handled;
       case LogicalKeyboardKey.pageUp:
-        _doManualScroll(-0.15, 'Page Up');
+        _doManualScroll(-pageDelta, 'Page Up');
         return KeyEventResult.handled;
       case LogicalKeyboardKey.pageDown:
-        _doManualScroll(0.15, 'Page Down');
+        _doManualScroll(pageDelta, 'Page Down');
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowLeft:
         notifier.adjustSpeed(-0.5);
-        _showSpeedOverlayNow(ref.read(readerSettingsProvider).scrollSpeed);
+        _showSpeedOverlayNow(ref.read(appSettingsProvider).scrollSpeed);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowRight:
         notifier.adjustSpeed(0.5);
-        _showSpeedOverlayNow(ref.read(readerSettingsProvider).scrollSpeed);
+        _showSpeedOverlayNow(ref.read(appSettingsProvider).scrollSpeed);
         return KeyEventResult.handled;
       default:
         return KeyEventResult.ignored;
     }
+  }
+
+  void _updateLastKey(LogicalKeyboardKey key) {
+    setState(() {
+      _lastKeyLabel = key.keyLabel.isNotEmpty ? key.keyLabel : key.debugName ?? 'Unknown';
+    });
   }
 
   void _showSpeedOverlayNow(double speed) {
@@ -316,7 +304,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     final readerState = ref.watch(readerProvider);
-    final settings = ref.watch(readerSettingsProvider);
+    final settings = ref.watch(appSettingsProvider);
+    final resolvedStyle = settings.resolvedTextStyle();
 
     final body = GestureDetector(
       onTap: () {
@@ -325,24 +314,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       },
       child: Listener(
         onPointerDown: (_) {
-          if (_autoScrollService.isRunning) {
-            // ignore: avoid_print
-            print('[Scrollit] POINTER DOWN — pausing auto-scroll immediately');
-          }
           _autoScrollService.isUserDragging = true;
         },
         onPointerUp: (_) {
-          if (_autoScrollService.isUserDragging) {
-            // ignore: avoid_print
-            print('[Scrollit] POINTER UP — resuming auto-scroll');
-          }
           _autoScrollService.isUserDragging = false;
         },
         onPointerCancel: (_) {
-          if (_autoScrollService.isUserDragging) {
-            // ignore: avoid_print
-            print('[Scrollit] POINTER CANCEL — resuming auto-scroll');
-          }
           _autoScrollService.isUserDragging = false;
         },
         child: Container(
@@ -366,20 +343,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                             ),
                             child: Text(
                               _scriptContent ?? '',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: settings.fontSize,
-                                height: 1.6,
-                              ),
+                              style: resolvedStyle,
                             ),
                           )
                         : Text(
                             _scriptContent ?? '',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: settings.fontSize,
-                              height: 1.6,
-                            ),
+                            style: resolvedStyle,
                           ),
                   ),
                 ),
@@ -430,6 +399,32 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     ),
                   ),
                 ),
+              // ── Remote debug overlays ──────────────────────────────
+              if (settings.showLastKeyReceived && _lastKeyLabel != null && !settings.showRemoteDebugInfo)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: _buildDebugChip('Last Key: $_lastKeyLabel'),
+                ),
+              if (settings.showRemoteDebugInfo)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _buildDebugChip('Last Key: ${_lastKeyLabel ?? '—'}'),
+                      const SizedBox(height: 4),
+                      _buildDebugChip(
+                        'Auto-scroll: ${readerState.isAutoScrolling ? 'ON' : 'OFF'}',
+                      ),
+                      const SizedBox(height: 4),
+                      _buildDebugChip(
+                        'Speed: ${settings.scrollSpeed.toStringAsFixed(1)}x',
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
@@ -463,6 +458,27 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   ),
                 ),
           body: body,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDebugChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 11,
+          fontFamily: 'monospace',
         ),
       ),
     );

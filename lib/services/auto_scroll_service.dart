@@ -26,20 +26,12 @@ class AutoScrollService {
   ) {
     stop();
     _cachedSpeed = initialSpeed;
-    // ignore: avoid_print
-    print('[Scrollit][AutoScroll] START — speed=$initialSpeed');
     _timer = Timer.periodic(const Duration(milliseconds: 16), (_) {
       if (_isPausedForManualAdjustment || isUserDragging || !controller.hasClients) {
         _skippedTicks++;
-        if (_skippedTicks == 1 || _skippedTicks % 60 == 0) {
-          // ignore: avoid_print
-          print('[Scrollit][AutoScroll] TICK SKIPPED (#$_skippedTicks) — paused=$_isPausedForManualAdjustment dragging=$isUserDragging hasClients=${controller.hasClients}');
-        }
         return;
       }
       if (_skippedTicks > 0) {
-        // ignore: avoid_print
-        print('[Scrollit][AutoScroll] TICK RESUMED after $_skippedTicks skipped ticks');
         _skippedTicks = 0;
       }
       final maxExtent = controller.position.maxScrollExtent;
@@ -59,8 +51,6 @@ class AutoScrollService {
   }
 
   void stop() {
-    // ignore: avoid_print
-    print('[Scrollit][AutoScroll] STOP — wasRunning=$isRunning paused=$_isPausedForManualAdjustment dragging=$isUserDragging resumeTimerActive=$isResumeTimerActive');
     _timer?.cancel();
     _timer = null;
     _resumeTimer?.cancel();
@@ -71,24 +61,16 @@ class AutoScrollService {
   }
 
   void pauseForManualAdjustment(Duration delay, VoidCallback onResume) {
-    final wasPaused = _isPausedForManualAdjustment;
-    final hadResumeTimer = isResumeTimerActive;
     _isPausedForManualAdjustment = true;
     _resumeTimer?.cancel();
-    // ignore: avoid_print
-    print('[Scrollit][AutoScroll] PAUSE_MANUAL — wasPaused=$wasPaused hadResumeTimer=$hadResumeTimer delay=${delay.inMilliseconds}ms isRunning=$isRunning');
     _resumeTimer = Timer(delay, () {
       _isPausedForManualAdjustment = false;
       _resumeTimer = null;
-      // ignore: avoid_print
-      print('[Scrollit][AutoScroll] RESUME_MANUAL — timer fired, isRunning=$isRunning dragging=$isUserDragging');
       onResume();
     });
   }
 
   void cancelResumeTimer() {
-    // ignore: avoid_print
-    print('[Scrollit][AutoScroll] CANCEL_RESUME_TIMER — wasActive=$isResumeTimerActive');
     _resumeTimer?.cancel();
     _resumeTimer = null;
   }

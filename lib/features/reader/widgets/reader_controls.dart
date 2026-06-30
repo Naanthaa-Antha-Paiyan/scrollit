@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/reader_settings.dart';
+import '../../settings/models/app_settings.dart';
+import '../../settings/providers/app_settings_provider.dart';
 import '../providers/reader_provider.dart';
-import '../providers/reader_settings_provider.dart';
 
 class ReaderControls extends ConsumerWidget {
   const ReaderControls({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(readerSettingsProvider);
+    final settings = ref.watch(appSettingsProvider);
     final reader = ref.watch(readerProvider);
 
     return Listener(
@@ -31,11 +31,11 @@ class ReaderControls extends ConsumerWidget {
                   icon: Icons.text_fields,
                   label: 'Size',
                   value: settings.fontSize,
-                  min: ReaderSettings.minFontSize,
-                  max: ReaderSettings.maxFontSize,
+                  min: AppSettings.minFontSize,
+                  max: AppSettings.maxFontSize,
                   displayValue: '${settings.fontSize.round()}',
                   onChanged: (v) =>
-                      ref.read(readerSettingsProvider.notifier).setFontSize(v),
+                      ref.read(appSettingsProvider.notifier).setFontSize(v),
                 ),
                 const SizedBox(height: 4),
                 _buildSliderRow(
@@ -43,11 +43,11 @@ class ReaderControls extends ConsumerWidget {
                   icon: Icons.speed,
                   label: 'Speed',
                   value: settings.scrollSpeed,
-                  min: ReaderSettings.minScrollSpeed,
-                  max: ReaderSettings.maxScrollSpeed,
+                  min: AppSettings.minScrollSpeed,
+                  max: AppSettings.maxScrollSpeed,
                   displayValue: settings.scrollSpeed.toStringAsFixed(1),
                   onChanged: (v) => ref
-                      .read(readerSettingsProvider.notifier)
+                      .read(appSettingsProvider.notifier)
                       .setScrollSpeed(v),
                 ),
                 const SizedBox(height: 4),
@@ -56,11 +56,11 @@ class ReaderControls extends ConsumerWidget {
                   icon: Icons.horizontal_distribute,
                   label: 'Padding',
                   value: settings.horizontalPadding,
-                  min: ReaderSettings.minHorizontalPadding,
-                  max: ReaderSettings.maxHorizontalPadding,
+                  min: AppSettings.minHorizontalPadding,
+                  max: AppSettings.maxHorizontalPadding,
                   displayValue: '${settings.horizontalPadding.round()}',
                   onChanged: (v) => ref
-                      .read(readerSettingsProvider.notifier)
+                      .read(appSettingsProvider.notifier)
                       .setHorizontalPadding(v),
                 ),
                 const SizedBox(height: 8),
@@ -83,7 +83,7 @@ class ReaderControls extends ConsumerWidget {
                       label: 'Mirror',
                       active: settings.mirrorMode,
                       onPressed: () => ref
-                          .read(readerSettingsProvider.notifier)
+                          .read(appSettingsProvider.notifier)
                           .toggleMirrorMode(),
                     ),
                     _buildToggleButton(
@@ -119,7 +119,7 @@ class ReaderControls extends ConsumerWidget {
         Icon(icon, size: 16, color: Colors.white70),
         const SizedBox(width: 8),
         SizedBox(
-          width: 44,
+          width: 48,
           child: Text(
             label,
             style: const TextStyle(color: Colors.white70, fontSize: 12),
@@ -137,7 +137,7 @@ class ReaderControls extends ConsumerWidget {
               overlayColor: Color(0x29FFFFFF),
             ),
             child: Slider(
-              value: value,
+              value: value.clamp(min, max),
               min: min,
               max: max,
               onChanged: onChanged,

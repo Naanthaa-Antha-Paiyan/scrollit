@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../scripts/providers/scripts_provider.dart';
-import '../models/reader_settings.dart';
-import 'reader_settings_provider.dart';
+import '../../settings/models/app_settings.dart';
+import '../../settings/providers/app_settings_provider.dart';
 
 final readerProvider =
     StateNotifierProvider<ReaderNotifier, ReaderState>((ref) {
@@ -104,32 +104,36 @@ class ReaderNotifier extends StateNotifier<ReaderState> {
   }
 
   void adjustSpeed(double delta) {
-    final settingsNotifier = _ref.read(readerSettingsProvider.notifier);
-    final current = _ref.read(readerSettingsProvider).scrollSpeed;
+    final settingsNotifier = _ref.read(appSettingsProvider.notifier);
+    final current = _ref.read(appSettingsProvider).scrollSpeed;
     settingsNotifier.setScrollSpeed((current + delta).clamp(
-      ReaderSettings.minScrollSpeed,
-      ReaderSettings.maxScrollSpeed,
+      AppSettings.minScrollSpeed,
+      AppSettings.maxScrollSpeed,
     ));
   }
 
   void scrollUp() {
+    final step = _ref.read(appSettingsProvider).manualScrollStep.delta;
     state = state.copyWith(
-        position: (state.position - 0.02).clamp(0.0, 1.0));
+        position: (state.position - step).clamp(0.0, 1.0));
   }
 
   void scrollDown() {
+    final step = _ref.read(appSettingsProvider).manualScrollStep.delta;
     state = state.copyWith(
-        position: (state.position + 0.02).clamp(0.0, 1.0));
+        position: (state.position + step).clamp(0.0, 1.0));
   }
 
   void pageUp() {
+    final jump = _ref.read(appSettingsProvider).pageJumpSize.fraction;
     state = state.copyWith(
-        position: (state.position - 0.15).clamp(0.0, 1.0));
+        position: (state.position - jump).clamp(0.0, 1.0));
   }
 
   void pageDown() {
+    final jump = _ref.read(appSettingsProvider).pageJumpSize.fraction;
     state = state.copyWith(
-        position: (state.position + 0.15).clamp(0.0, 1.0));
+        position: (state.position + jump).clamp(0.0, 1.0));
   }
 
   void toggleFullscreen() {
