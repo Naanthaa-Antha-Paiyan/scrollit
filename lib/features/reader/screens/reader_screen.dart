@@ -1,0 +1,470 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../scripts/providers/scripts_provider.dart';
+import '../../../services/auto_scroll_service.dart';
+import '../../../services/presenter_remote_service.dart';
+import '../providers/reader_provider.dart';
+import '../providers/reader_settings_provider.dart';
+import '../widgets/reader_controls.dart';
+
+class ReaderScreen extends ConsumerStatefulWidget {
+  final String scriptId;
+
+  const ReaderScreen({super.key, required this.scriptId});
+
+  @override
+  ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
+}
+
+class _ReaderScreenState extends ConsumerState<ReaderScreen> {
+  final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode();
+  final AutoScrollService _autoScrollService = AutoScrollService();
+  final PresenterRemoteService _remoteService = PresenterRemoteService();
+  ReaderNotifier? _readerNotifier;
+  bool _isLoaded = false;
+  String? _scriptContent;
+  String? _scriptTitle;
+  Timer? _speedOverlayTimer;
+  double? _lastSpeed;
+  bool _showSpeedOverlay = false;
+  static const _manualScrollResumeDelay = Duration(milliseconds: 1500);
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScrollChanged);
+    ref.listenManual(readerProvider, _onReaderStateChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _readerNotifier = ref.read(readerProvider.notifier);
+      _readerNotifier!.openScript(widget.scriptId);
+      _loadContent();
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoScrollService.stop();
+    _speedOverlayTimer?.cancel();
+    _readerNotifier?.savePosition();
+    _readerNotifier?.cleanup();
+    _scrollController.removeListener(_onScrollChanged);
+    _scrollController.dispose();
+    _focusNode.dispose();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
+  void _onReaderStateChanged(ReaderState? prev, ReaderState next) {
+    if (prev == null) return;
+    if (prev.isFullscreen != next.isFullscreen) {
+      _onFullscreenChanged(next.isFullscreen);
+    }
+    if (prev.isAutoScrolling != next.isAutoScrolling) {
+      _onAutoScrollChanged(next.isAutoScrolling);
+    }
+  }
+
+  void _onFullscreenChanged(bool isFullscreen) {
+    SystemChrome.setEnabledSystemUIMode(
+      isFullscreen ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+    );
+    if (!isFullscreen) _reclaimFocus();
+  }
+
+  void _onAutoScrollChanged(bool isAutoScrolling) {
+    if (isAutoScrolling) {
+      _autoScrollService.start(
+        _scrollController,
+        ref.read(readerSettingsProvider).scrollSpeed,
+        _onAutoScrollTick,
+        () => ref.read(readerSettingsProvider).scrollSpeed,
+      );
+    } else {
+      _autoScrollService.stop();
+    }
+  }
+
+  void _loadContent() {
+    final scripts = ref.read(scriptsProvider);
+    final script = scripts.isEmpty
+        ? null
+        : scripts.firstWhere((s) => s.id == widget.scriptId,
+            orElse: () => scripts.first);
+    if (script != null) {
+      _scriptTitle = script.title;
+      _scriptContent = ref.read(scriptsProvider.notifier).loadContent(script.id);
+      _isLoaded = true;
+      if (mounted) {
+        setState(() {});
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _restorePosition();
+        });
+      }
+    }
+  }
+
+  double? _currentControllerExtent() {
+    if (!_scrollController.hasClients) return null;
+    return _scrollController.position.maxScrollExtent;
+  }
+
+  void _onScrollChanged() {
+    if (!_scrollController.hasClients) return;
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    if (maxExtent > 0) {
+      final pos = _scrollController.offset / maxExtent;
+      final clamped = pos.clamp(0.0, 1.0);
+      ref.read(readerProvider.notifier).setPosition(clamped);
+    }
+  }
+
+  void _jumpTo(double offset) {
+    if (!_scrollController.hasClients) {
+      // ignore: avoid_print
+      print('[Scrollit] _jumpTo SKIPPED — no clients');
+      return;
+    }
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    if (maxExtent <= 0) {
+      // ignore: avoid_print
+      print('[Scrollit] _jumpTo SKIPPED — maxExtent=$maxExtent');
+      return;
+    }
+    try {
+      final clamped = offset.clamp(0.0, maxExtent);
+      _scrollController.jumpTo(clamped);
+    } catch (e) {
+      // ignore: avoid_print
+      print('[Scrollit] _jumpTo EXCEPTION: $e');
+    }
+  }
+
+  void _syncScrollToPosition(double position) {
+    if (!_scrollController.hasClients) return;
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    if (maxExtent > 0) {
+      _jumpTo(position * maxExtent);
+    }
+  }
+
+  void _doManualScroll(double delta, String label) {
+    final isAutoOn = ref.read(readerProvider).isAutoScrolling;
+    // ignore: avoid_print
+    print('[Scrollit] KEY: $label (autoScroll=$isAutoOn, serviceRunning=${_autoScrollService.isRunning}, dragging=${_autoScrollService.isUserDragging})');
+    _autoScrollService.pauseForManualAdjustment(
+      _manualScrollResumeDelay,
+      _onManualAdjustmentEnd,
+    );
+
+    final extent = _currentControllerExtent();
+    if (extent == null || extent <= 0) {
+      // ignore: avoid_print
+      print('[Scrollit]   ABORTED — extent=$extent');
+      return;
+    }
+
+    final offsetBefore = _scrollController.offset;
+    final currentPos = offsetBefore / extent;
+    final targetPos = (currentPos + delta).clamp(0.0, 1.0);
+    final targetOffset = targetPos * extent;
+
+    // ignore: avoid_print
+    print('[Scrollit]   Before: pos=${currentPos.toStringAsFixed(4)} offset=${offsetBefore.toStringAsFixed(1)} target=${targetOffset.toStringAsFixed(1)}');
+    _jumpTo(targetOffset);
+    final offsetAfter = _scrollController.offset;
+    final moved = (offsetAfter - offsetBefore).abs();
+    // ignore: avoid_print
+    print('[Scrollit]   After:  pos=${(offsetAfter / extent).toStringAsFixed(4)} offset=${offsetAfter.toStringAsFixed(1)} moved=${moved.toStringAsFixed(1)}');
+    if (moved < 0.5) {
+      // ignore: avoid_print
+      print('[Scrollit]   ⚠️ SCROLL DID NOT MOVE — this is the bug!');
+    }
+  }
+
+  void _restorePosition() {
+    if (!_isLoaded) return;
+    final readerState = ref.read(readerProvider);
+    if (readerState.position <= 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _tryRestore(readerState.position, retries: 5);
+    });
+  }
+
+  void _tryRestore(double position, {int retries = 5}) {
+    if (!mounted) return;
+    if (!_scrollController.hasClients || _scrollController.position.maxScrollExtent <= 0) {
+      if (retries > 0) {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _tryRestore(position, retries: retries - 1);
+        });
+      }
+      return;
+    }
+    _syncScrollToPosition(position);
+  }
+
+  void _onAutoScrollTick(double position) {
+    final notifier = ref.read(readerProvider.notifier);
+    if (position >= 1.0) {
+      // ignore: avoid_print
+      print('[Scrollit] AUTO: reached end, stopping');
+      notifier.stopAutoScroll();
+      return;
+    }
+    notifier.setPosition(position);
+    // ignore: avoid_print
+    print('[Scrollit] AUTO: pos=$position offset=${_scrollController.hasClients ? _scrollController.offset.toStringAsFixed(1) : "N/A"}');
+  }
+
+  void _onManualAdjustmentEnd() {
+    // Auto-scroll resumes naturally via AutoScrollService.
+    // No state update needed since isAutoScrolling is still true.
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    // ignore: avoid_print
+    print('[Scrollit] EVENT: ${event.runtimeType} ${event.logicalKey}');
+    _remoteService.onKeyEvent(event);
+
+    if (event is KeyDownEvent) {
+      if (_remoteService.detectFullscreenSequence()) {
+        ref.read(readerProvider.notifier).toggleFullscreen();
+        return KeyEventResult.handled;
+      }
+    }
+
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    final notifier = ref.read(readerProvider.notifier);
+
+    if (event.logicalKey == LogicalKeyboardKey.keyB) {
+      notifier.toggleAutoScroll();
+      return KeyEventResult.handled;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      if (ref.read(readerProvider).isFullscreen) {
+        notifier.exitFullscreen();
+        _reclaimFocus();
+      }
+      return KeyEventResult.handled;
+    }
+
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.arrowUp:
+        _doManualScroll(-0.02, 'Arrow Up');
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowDown:
+        _doManualScroll(0.02, 'Arrow Down');
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.pageUp:
+        _doManualScroll(-0.15, 'Page Up');
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.pageDown:
+        _doManualScroll(0.15, 'Page Down');
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowLeft:
+        notifier.adjustSpeed(-0.5);
+        _showSpeedOverlayNow(ref.read(readerSettingsProvider).scrollSpeed);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowRight:
+        notifier.adjustSpeed(0.5);
+        _showSpeedOverlayNow(ref.read(readerSettingsProvider).scrollSpeed);
+        return KeyEventResult.handled;
+      default:
+        return KeyEventResult.ignored;
+    }
+  }
+
+  void _showSpeedOverlayNow(double speed) {
+    _lastSpeed = speed;
+    _showSpeedOverlay = true;
+    _speedOverlayTimer?.cancel();
+    _speedOverlayTimer = Timer(const Duration(seconds: 1), () {
+      if (mounted) {
+        setState(() => _showSpeedOverlay = false);
+      }
+    });
+    if (mounted) setState(() {});
+  }
+
+  void _reclaimFocus() {
+    _focusNode.requestFocus();
+  }
+
+  void _handleBack() {
+    final notifier = ref.read(readerProvider.notifier);
+    if (ref.read(readerProvider).isFullscreen) {
+      notifier.exitFullscreen();
+      _reclaimFocus();
+      return;
+    }
+    notifier.savePosition();
+    notifier.closeScript();
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final readerState = ref.watch(readerProvider);
+    final settings = ref.watch(readerSettingsProvider);
+
+    final body = GestureDetector(
+      onTap: () {
+        ref.read(readerProvider.notifier).toggleControls();
+        _reclaimFocus();
+      },
+      child: Listener(
+        onPointerDown: (_) {
+          if (_autoScrollService.isRunning) {
+            // ignore: avoid_print
+            print('[Scrollit] POINTER DOWN — pausing auto-scroll immediately');
+          }
+          _autoScrollService.isUserDragging = true;
+        },
+        onPointerUp: (_) {
+          if (_autoScrollService.isUserDragging) {
+            // ignore: avoid_print
+            print('[Scrollit] POINTER UP — resuming auto-scroll');
+          }
+          _autoScrollService.isUserDragging = false;
+        },
+        onPointerCancel: (_) {
+          if (_autoScrollService.isUserDragging) {
+            // ignore: avoid_print
+            print('[Scrollit] POINTER CANCEL — resuming auto-scroll');
+          }
+          _autoScrollService.isUserDragging = false;
+        },
+        child: Container(
+          color: Colors.black,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: settings.horizontalPadding),
+                    child: settings.mirrorMode
+                        ? Transform(
+                            alignment: Alignment.center,
+                            transform: Matrix4(
+                              -1, 0, 0, 0,
+                              0, 1, 0, 0,
+                              0, 0, 1, 0,
+                              0, 0, 0, 1,
+                            ),
+                            child: Text(
+                              _scriptContent ?? '',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: settings.fontSize,
+                                height: 1.6,
+                              ),
+                            ),
+                          )
+                        : Text(
+                            _scriptContent ?? '',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: settings.fontSize,
+                              height: 1.6,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+              if (readerState.showControls)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: ReaderControls(),
+                ),
+              if (readerState.isAutoScrolling && !readerState.showControls)
+                Positioned(
+                  right: 12,
+                  bottom: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      settings.scrollSpeed.toStringAsFixed(1),
+                      style: const TextStyle(color: Colors.white60, fontSize: 11),
+                    ),
+                  ),
+                ),
+              if (_showSpeedOverlay && _lastSpeed != null)
+                Positioned(
+                  top: 40,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Speed: ${_lastSpeed!.toStringAsFixed(1)}x',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: Focus(
+        focusNode: _focusNode,
+        autofocus: true,
+        onKeyEvent: _handleKeyEvent,
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          appBar: readerState.isFullscreen
+              ? null
+              : AppBar(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  title: Text(
+                    _scriptTitle ?? '',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: _handleBack,
+                  ),
+                ),
+          body: body,
+        ),
+      ),
+    );
+  }
+}
