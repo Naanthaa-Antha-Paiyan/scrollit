@@ -37,6 +37,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   void initState() {
     super.initState();
+    // Lock to landscape while reader is active.
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     _scrollController.addListener(_onScrollChanged);
     ref.listenManual(readerProvider, _onReaderStateChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -57,6 +62,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     _scrollController.removeListener(_onScrollChanged);
     _scrollController.dispose();
     _focusNode.dispose();
+    // Restore all orientations when leaving the reader.
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
@@ -110,10 +117,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     }
   }
 
-  double? _currentControllerExtent() {
-    if (!_scrollController.hasClients) return null;
-    return _scrollController.position.maxScrollExtent;
-  }
 
   void _onScrollChanged() {
     if (!_scrollController.hasClients) return;
@@ -149,23 +152,28 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     }
   }
 
-  void _doManualScroll(double delta, String label) {
+  void _doManualScroll(double direction, String label) {
     _autoScrollService.pauseForManualAdjustment(
       _manualScrollResumeDelay,
       _onManualAdjustmentEnd,
     );
 
-    final extent = _currentControllerExtent();
-    if (extent == null || extent <= 0) {
-      return;
-    }
+    if (!_scrollController.hasClients) return;
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    if (maxExtent <= 0) return;
 
-    final offsetBefore = _scrollController.offset;
-    final currentPos = offsetBefore / extent;
-    final targetPos = (currentPos + delta).clamp(0.0, 1.0);
-    final targetOffset = targetPos * extent;
+    // Scroll by 50% of the visible viewport height.
+    final viewportPixels =
+        _scrollController.position.viewportDimension * 0.5;
+    final pixelDelta = direction > 0 ? viewportPixels : -viewportPixels;
+    final targetOffset =
+        (_scrollController.offset + pixelDelta).clamp(0.0, maxExtent);
 
-    _jumpTo(targetOffset);
+    _scrollController.animateTo(
+      targetOffset,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   void _restorePosition() {
@@ -255,11 +263,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         _doManualScroll(pageDelta, 'Page Down');
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowLeft:
-        notifier.adjustSpeed(-0.5);
+        notifier.adjustSpeed(-ReaderNotifier.defaultSpeedDelta);
         _showSpeedOverlayNow(ref.read(appSettingsProvider).scrollSpeed);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowRight:
-        notifier.adjustSpeed(0.5);
+        notifier.adjustSpeed(ReaderNotifier.defaultSpeedDelta);
         _showSpeedOverlayNow(ref.read(appSettingsProvider).scrollSpeed);
         return KeyEventResult.handled;
       default:
@@ -355,10 +363,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               ),
               if (readerState.showControls)
                 Positioned(
-                  left: 0,
                   right: 0,
+                  top: 0,
                   bottom: 0,
-                  child: ReaderControls(),
+                  child: SizedBox(
+                    width: MediaQuery.sizeOf(context).width * 0.4,
+                    child: ReaderControls(),
+                  ),
                 ),
               if (readerState.isAutoScrolling && !readerState.showControls)
                 Positioned(

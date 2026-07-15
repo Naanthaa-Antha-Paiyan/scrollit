@@ -18,11 +18,11 @@ class ReaderControls extends ConsumerWidget {
       onPointerMove: (_) =>
           ref.read(readerProvider.notifier).showControlsTemporarily(),
       child: Container(
-        color: Colors.black.withValues(alpha: 0.85),
+        color: Color(0xFF2A2A2A).withValues(alpha: 0.96),
         child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          left: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -37,7 +37,7 @@ class ReaderControls extends ConsumerWidget {
                   onChanged: (v) =>
                       ref.read(appSettingsProvider.notifier).setFontSize(v),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 _buildSliderRow(
                   context,
                   icon: Icons.speed,
@@ -50,7 +50,7 @@ class ReaderControls extends ConsumerWidget {
                       .read(appSettingsProvider.notifier)
                       .setScrollSpeed(v),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 _buildSliderRow(
                   context,
                   icon: Icons.horizontal_distribute,
@@ -63,7 +63,7 @@ class ReaderControls extends ConsumerWidget {
                       .read(appSettingsProvider.notifier)
                       .setHorizontalPadding(v),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -114,27 +114,36 @@ class ReaderControls extends ConsumerWidget {
     required String displayValue,
     required ValueChanged<double> onChanged,
   }) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: Colors.white70),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 48,
-          child: Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
-          ),
+        Row(
+          children: [
+            Icon(icon, size: 16, color: Colors.white70),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const Spacer(),
+            Text(
+              displayValue,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ],
         ),
-        Expanded(
+        SizedBox(
+          height: 48,
           child: SliderTheme(
             data: const SliderThemeData(
-              trackHeight: 2,
-              thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
-              overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
+              trackHeight: 32,
+              thumbShape: RoundSliderThumbShape(enabledThumbRadius: 0),
+              overlayShape: RoundSliderOverlayShape(overlayRadius: 0),
               activeTrackColor: Colors.white,
               inactiveTrackColor: Colors.white30,
-              thumbColor: Colors.white,
-              overlayColor: Color(0x29FFFFFF),
+              thumbColor: Colors.transparent,
+              overlayColor: Colors.transparent,
             ),
             child: Slider(
               value: value.clamp(min, max),
@@ -142,14 +151,6 @@ class ReaderControls extends ConsumerWidget {
               max: max,
               onChanged: onChanged,
             ),
-          ),
-        ),
-        SizedBox(
-          width: 32,
-          child: Text(
-            displayValue,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
-            textAlign: TextAlign.right,
           ),
         ),
       ],

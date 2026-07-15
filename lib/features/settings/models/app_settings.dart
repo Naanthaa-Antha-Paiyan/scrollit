@@ -48,11 +48,11 @@ class AppSettings {
 
   // ── Range constants ────────────────────────────────────────────────
   static const double minFontSize = 16.0;
-  static const double maxFontSize = 96.0;
+  static const double maxFontSize = 64.0;
   static const double minScrollSpeed = 0.1;
-  static const double maxScrollSpeed = 10.0;
-  static const double minHorizontalPadding = 0.0;
-  static const double maxHorizontalPadding = 100.0;
+  static const double maxScrollSpeed = 2.0;
+  static const double minHorizontalPadding = 20.0;
+  static const double maxHorizontalPadding = 200.0;
   static const double minLineHeight = 1.0;
   static const double maxLineHeight = 3.0;
   static const double minLetterSpacing = 0.0;

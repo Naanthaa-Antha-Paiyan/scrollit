@@ -112,6 +112,9 @@ class ReaderNotifier extends StateNotifier<ReaderState> {
     ));
   }
 
+  /// Default speed adjustment per remote arrow-left/right press.
+  static const double defaultSpeedDelta = 0.25;
+
   void scrollUp() {
     final step = _ref.read(appSettingsProvider).manualScrollStep.delta;
     state = state.copyWith(

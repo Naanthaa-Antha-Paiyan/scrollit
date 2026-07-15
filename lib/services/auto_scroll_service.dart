@@ -43,7 +43,7 @@ class AutoScrollService {
         return;
       }
       _cachedSpeed = onReadSpeed();
-      final pixelDelta = _cachedSpeed * 0.05 / 100.0 * maxExtent;
+      final pixelDelta = _cachedSpeed * 0.02 / 100.0 * maxExtent;
       final newOffset = (currentOffset + pixelDelta).clamp(0.0, maxExtent);
       controller.jumpTo(newOffset);
       onPositionUpdate(newOffset / maxExtent);
