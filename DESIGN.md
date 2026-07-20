@@ -1,8 +1,8 @@
-# Scrollit - Design Guide
+# Scrolllit - Design Guide
 
 ## Design Philosophy
 
-Scrollit follows a "less is more" philosophy. The app exists to serve one function — displaying text under a teleprompter — and it does nothing else. Every pixel that isn't script text or an essential control is considered noise.
+Scrolllit follows a "less is more" philosophy. The app exists to serve one function — displaying text under a teleprompter — and it does nothing else. Every pixel that isn't script text or an essential control is considered noise.
 
 The aesthetic is inspired by:
 - **Notion** — clean typography, generous whitespace, minimal chrome

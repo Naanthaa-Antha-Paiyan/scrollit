@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "scrolllit"
+  },
+  "targets": {
+    "scrolllit": {
+      "hosting": {
+        "main": [
+          "scrolllit"
+        ],
+        "redirect": [
+          "scrollit"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

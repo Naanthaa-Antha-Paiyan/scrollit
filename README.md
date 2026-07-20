@@ -1,4 +1,4 @@
-# Scrollit
+# Scrolllit
 
 A lightweight, privacy-first teleprompter app for creators who use physical teleprompters and presentation remotes.
 
@@ -53,7 +53,7 @@ flutter build web --release
 
 ## Privacy
 
-Scrollit requires:
+Scrolllit requires:
 - No internet permission
 - No camera permission
 - No storage permission

@@ -1,8 +1,8 @@
-# Scrollit - Agent Guide
+# Scrolllit - Agent Guide
 
 ## Project Overview
 
-Scrollit is a lightweight, privacy-first Flutter teleprompter app for creators using physical teleprompters and presentation remotes. It focuses solely on displaying and controlling text — no video, camera, internet, or accounts.
+Scrolllit is a lightweight, privacy-first Flutter teleprompter app for creators using physical teleprompters and presentation remotes. It focuses solely on displaying and controlling text — no video, camera, internet, or accounts.
 
 ## Architecture Overview
 
@@ -36,10 +36,13 @@ lib/
         settings_section.dart                  # Card-based section wrapper
         settings_slider_tile.dart              # Reusable slider row
         settings_toggle_tile.dart              # Reusable switch row
+        developer_dialog.dart                  # Developer profile dialog with social links
   services/
     auto_scroll_service.dart                   # Timer-based auto-scroll engine
     persistence_service.dart                   # SharedPreferences wrapper
     presenter_remote_service.dart              # Keyboard/remote input handling
+    analytics_service.dart                     # Firebase Analytics wrapper (safe, try-catch guarded)
+    version_service.dart                       # Cross-platform version info via package_info_plus
   shared/
     widgets/empty_state.dart                   # Empty state placeholder widget
 ```
@@ -86,7 +89,7 @@ Existing keys (`reader_font_size`, `reader_scroll_speed`, `reader_horizontal_pad
 
 ## Important Implementation Decisions
 
-1. **No camera/internet permissions** — The app has zero platform permissions beyond what Flutter requires by default. No `InternetPermission`, no `CAMERA`, no `RECORD_AUDIO`.
+1. **No camera permissions** — The app has zero camera or microphone permissions. Firebase Analytics requires internet access, which is added implicitly via Firebase SDK manifest merge.
 
 2. **Scroll position as ratio** — Position is stored as a 0.0–1.0 ratio rather than pixel offset, making it robust across font size and layout changes.
 
@@ -115,6 +118,20 @@ Existing keys (`reader_font_size`, `reader_scroll_speed`, `reader_horizontal_pad
 - No word count or reading time estimation displayed.
 - No undo for script edits or deletions.
 - Ghost reduction overlay toggle is a placeholder — no rendering changes yet.
+
+## Analytics
+
+Firebase Analytics is integrated via a centralized `AnalyticsService` singleton. All analytics calls are wrapped in try-catch — analytics failures are silently logged to the debug console but never affect app functionality. Analytics tracks:
+- App lifecycle (opened, session started)
+- Reader usage (opened, closed, auto-scroll, manual scroll, mirror mode)
+- Settings changes (font size, scroll speed, theme, presets, etc.)
+- Version user properties (app_version, build_number, full_version)
+
+### Dependencies added for analytics & version:
+- `firebase_core` — Firebase initialization
+- `firebase_analytics` — Analytics SDK
+- `package_info_plus` — Cross-platform version info
+- `url_launcher` — External URL launching (developer profile links)
 
 ## Future Roadmap
 

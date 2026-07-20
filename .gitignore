@@ -90,3 +90,4 @@ app.*.map.json
 
 # Gemini AI
 .agents/
+.firebase/hosting.YnVpbGRcd2Vi.cache

@@ -13,7 +13,7 @@ class ScriptListScreen extends ConsumerWidget {
     final scripts = ref.watch(scriptsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Scrollit')),
+      appBar: AppBar(title: const Text('Scrolllit')),
       body: scripts.isEmpty
           ? EmptyState(
               icon: Icons.auto_stories_outlined,

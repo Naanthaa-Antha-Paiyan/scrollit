@@ -40,7 +40,7 @@ class PresenterRemoteService {
       _lastSequenceTime = now;
       if (_debugLogging) {
         // ignore: avoid_print
-        print('[Scrollit] Fullscreen sequence detected');
+        print('[Scrolllit] Fullscreen sequence detected');
       }
       return true;
     }

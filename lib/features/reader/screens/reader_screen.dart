@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../services/analytics_service.dart';
+import '../../../utils/web_fullscreen.dart';
 import '../../scripts/providers/scripts_provider.dart';
 import '../../settings/providers/app_settings_provider.dart';
 import '../../../services/auto_scroll_service.dart';
@@ -24,6 +26,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   final FocusNode _focusNode = FocusNode();
   final AutoScrollService _autoScrollService = AutoScrollService();
   final PresenterRemoteService _remoteService = PresenterRemoteService();
+  final AnalyticsService _analytics = AnalyticsService.instance;
   ReaderNotifier? _readerNotifier;
   bool _isLoaded = false;
   String? _scriptContent;
@@ -55,6 +58,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   @override
   void dispose() {
+    _analytics.logReaderClosed(scriptId: widget.scriptId);
     _autoScrollService.stop();
     _speedOverlayTimer?.cancel();
     _readerNotifier?.savePosition();
@@ -82,11 +86,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     SystemChrome.setEnabledSystemUIMode(
       isFullscreen ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
     );
+    // On web, also toggle the browser's native fullscreen (hides tab bar,
+    // address bar, etc.). This is a no-op on non-web platforms.
+    if (isFullscreen) {
+      enterBrowserFullscreen();
+    } else {
+      exitBrowserFullscreen();
+    }
     if (!isFullscreen) _reclaimFocus();
   }
 
   void _onAutoScrollChanged(bool isAutoScrolling) {
     if (isAutoScrolling) {
+      _analytics.logAutoScrollStarted();
       _autoScrollService.start(
         _scrollController,
         ref.read(appSettingsProvider).scrollSpeed,
@@ -94,6 +106,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         () => ref.read(appSettingsProvider).scrollSpeed,
       );
     } else {
+      _analytics.logAutoScrollStopped();
       _autoScrollService.stop();
     }
   }
@@ -108,6 +121,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       _scriptTitle = script.title;
       _scriptContent = ref.read(scriptsProvider.notifier).loadContent(script.id);
       _isLoaded = true;
+      _analytics.logReaderOpened(scriptId: script.id);
       if (mounted) {
         setState(() {});
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -153,6 +167,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   void _doManualScroll(double direction, String label) {
+    _analytics.logManualScrollUsed();
     _autoScrollService.pauseForManualAdjustment(
       _manualScrollResumeDelay,
       _onManualAdjustmentEnd,

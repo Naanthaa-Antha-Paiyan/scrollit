@@ -7,6 +7,6 @@ void main() {
     await tester.pumpWidget(
       const ProviderScope(child: ScrollitApp()),
     );
-    expect(find.text('Scrollit'), findsOneWidget);
+    expect(find.text('Scrolllit'), findsOneWidget);
   });
 }

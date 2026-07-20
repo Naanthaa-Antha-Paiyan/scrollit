@@ -1,0 +1,50 @@
+{
+  "hosting": [
+    {
+      "target": "main",
+      "public": "build/web",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    },
+    {
+      "target": "redirect",
+      "redirects": [
+        {
+          "source": "**",
+          "destination": "https://scrolllit.web.app",
+          "type": 301
+        }
+      ]
+    }
+  ],
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "scrolllit",
+          "appId": "1:522467216661:android:0d11d3ca471f055f7c6d1c",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "scrolllit",
+          "configurations": {
+            "android": "1:522467216661:android:0d11d3ca471f055f7c6d1c",
+            "ios": "1:522467216661:ios:5443718c47970c437c6d1c",
+            "web": "1:522467216661:web:74f6ef27a9bbd31e7c6d1c"
+          }
+        }
+      }
+    }
+  }
+}

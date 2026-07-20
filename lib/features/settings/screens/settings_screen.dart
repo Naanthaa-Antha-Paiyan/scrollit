@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../services/version_service.dart';
 import '../models/app_settings.dart';
 import '../models/reader_enums.dart';
 import '../providers/app_settings_provider.dart';
 import '../widgets/color_picker_row.dart';
+import '../widgets/developer_dialog.dart';
 import '../widgets/settings_section.dart';
 import '../widgets/settings_slider_tile.dart';
 import '../widgets/settings_toggle_tile.dart';
@@ -16,6 +18,7 @@ class SettingsScreen extends ConsumerWidget {
     final settings = ref.watch(appSettingsProvider);
     final notifier = ref.read(appSettingsProvider.notifier);
     final theme = Theme.of(context);
+    final versionAsync = ref.watch(versionServiceProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -192,6 +195,81 @@ class SettingsScreen extends ConsumerWidget {
                 onChanged: (_) => notifier.toggleShowRemoteDebugInfo(),
               ),
             ],
+          ),
+
+          // ── About Section ────────────────────────────────────────
+          const SizedBox(height: 24),
+          GestureDetector(
+            onTap: () => DeveloperDialog.show(context),
+            child: SizedBox(
+              width: double.infinity,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                spacing: 4,
+                children: [
+                  SizedBox(width: 16),
+                  Column(
+                    children: [
+                      Text(
+                        'About Scrollit',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      versionAsync.when(
+                        data: (version) => Text(
+                          version.fullVersion,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        loading: () => SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.3),
+                          ),
+                        ),
+                        error: (e, _) => Text(
+                          '—',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.4),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        'Made with madness by',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.35,
+                          ),
+                          fontStyle: FontStyle.italic,
+                          letterSpacing: 0.3,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Naanthaa Antha Paiyan',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                  Icon(Icons.arrow_forward_ios, size: 16),
+                ],
+              ),
+            ),
           ),
 
           const SizedBox(height: 24),
