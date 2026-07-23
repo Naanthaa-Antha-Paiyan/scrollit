@@ -2,6 +2,14 @@
 
 A lightweight, privacy-first teleprompter app for creators who use physical teleprompters and presentation remotes.
 
+## Download APK
+
+[APK](https://github.com/Naanthaa-Antha-Paiyan/scrollit/releases/download/v1.7.0/app-release.apk)
+
+## Use directly in browser with below link
+
+[Scrollit](https://scrolllit.web.app/)
+
 ## Features
 
 - **Script Management** — Create, edit, rename, and delete scripts
@@ -31,19 +39,6 @@ flutter pub get
 flutter run
 ```
 
-## Build
-
-```bash
-# Android
-flutter build apk --release
-
-# iOS
-flutter build ios --release
-
-# Web
-flutter build web --release
-```
-
 ## Tech Stack
 
 - Flutter 3.44+
@@ -54,10 +49,8 @@ flutter build web --release
 ## Privacy
 
 Scrolllit requires:
-- No internet permission
 - No camera permission
 - No storage permission
-- No analytics
 - No tracking
 - No user accounts
 
