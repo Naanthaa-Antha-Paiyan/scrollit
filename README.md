@@ -2,13 +2,13 @@
 
 A lightweight, privacy-first teleprompter app for creators who use physical teleprompters and presentation remotes.
 
-## Download APK
+## 🚀 Quick Start
 
-[APK](https://github.com/Naanthaa-Antha-Paiyan/scrollit/releases/download/v1.7.0/app-release.apk)
+### Use Online
+🌐 https://scrolllit.web.app/
 
-## Use directly in browser with below link
-
-[Scrollit](https://scrolllit.web.app/)
+### Download Android APK
+📦 https://github.com/Naanthaa-Antha-Paiyan/scrollit/releases/latest
 
 ## Features
 
